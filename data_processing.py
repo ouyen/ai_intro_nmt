@@ -26,14 +26,14 @@ class Lang:
 
     def save(self,fpath=''):
         if fpath=='':
-            fpath=R_PATH+'/model/'+self.name+'.pkl'
+            fpath=R_PATH+'/data/'+self.name+'.pkl'
         _d={'name':self.name,'word2index':self.word2index,'word2count':self.word2count,'index2word':self.index2word,'n_words':self.n_words}
         with open(fpath,'wb') as f:
             pickle.dump(_d,f)
 
     def load(self,fpath=''):
         if fpath=='':
-            fpath=R_PATH+'/model/'+self.name+'.pkl'
+            fpath=R_PATH+'/data/'+self.name+'.pkl'
         with open(fpath,'rb') as f:
             _d=pickle.load(f)
         self.name = _d['name']
@@ -92,7 +92,7 @@ def main():
     input_lang, output_lang, pairs = prepareData(LANG1,LANG2)
     input_lang.save()
     output_lang.save()
-    with open(R_PATH+'/model/pairs.pkl','wb') as f:
+    with open(R_PATH+'/data/pairs.pkl','wb') as f:
         pickle.dump(pairs,f)
     print(random.choice(pairs))
     return input_lang, output_lang, pairs
@@ -102,7 +102,7 @@ def load():
     output_lang=Lang(LANG2)
     input_lang.load()
     output_lang.load()
-    with open(R_PATH+'/model/pairs.pkl','rb') as f:
+    with open(R_PATH+'/data/pairs.pkl','rb') as f:
         pairs=pickle.load(f)
     print(random.choice(pairs))
     return input_lang, output_lang, pairs
