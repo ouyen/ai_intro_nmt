@@ -14,7 +14,9 @@ import torch.nn.functional as F
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 class EncoderRNN(nn.Module):
+
     def __init__(self, input_size, hidden_size):
         super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
@@ -33,7 +35,12 @@ class EncoderRNN(nn.Module):
 
 
 class AttnDecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size, dropout_p=0.1, max_length=MAX_LENGTH):
+
+    def __init__(self,
+                 hidden_size,
+                 output_size,
+                 dropout_p=0.1,
+                 max_length=MAX_LENGTH):
         super(AttnDecoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.output_size = output_size
@@ -51,8 +58,9 @@ class AttnDecoderRNN(nn.Module):
         embedded = self.embedding(input).view(1, 1, -1)
         embedded = self.dropout(embedded)
 
-        attn_weights = F.softmax(
-            self.attn(torch.cat((embedded[0], hidden[0]), 1)), dim=1)
+        attn_weights = F.softmax(self.attn(
+            torch.cat((embedded[0], hidden[0]), 1)),
+                                 dim=1)
         attn_applied = torch.bmm(attn_weights.unsqueeze(0),
                                  encoder_outputs.unsqueeze(0))
 
@@ -70,39 +78,41 @@ class AttnDecoderRNN(nn.Module):
 
 
 class Seq2seq(nn.Module):
-    def __init__(self, encoder:EncoderRNN, decoder:AttnDecoderRNN):
+
+    def __init__(self, encoder: EncoderRNN, decoder: AttnDecoderRNN):
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder
-    
-    def forward(self,input_tensor):
-        encoder=self.encoder
-        decoder=self.decoder
+
+    def forward(self, input_tensor):
+        encoder = self.encoder
+        decoder = self.decoder
         encoder_hidden = self.encoder.initHidden()
         input_length = input_tensor.size(0)
-        encoder_outputs = torch.zeros(MAX_LENGTH, encoder.hidden_size, device=device)
+        encoder_outputs = torch.zeros(MAX_LENGTH,
+                                      encoder.hidden_size,
+                                      device=device)
 
         for ei in range(input_length):
-            encoder_output, encoder_hidden = encoder(
-                input_tensor[ei], encoder_hidden)
+            encoder_output, encoder_hidden = encoder(input_tensor[ei],
+                                                     encoder_hidden)
             encoder_outputs[ei] = encoder_output[0, 0]
 
         decoder_input = torch.tensor([[SOS_token]], device=device)
 
         decoder_hidden = encoder_hidden
 
-        decoder_outputs=torch.zeros(MAX_LENGTH,device=device)
+        decoder_outputs = torch.zeros(MAX_LENGTH, device=device)
 
         for di in range(MAX_LENGTH):
             decoder_output, decoder_hidden, decoder_attention = decoder(
                 decoder_input, decoder_hidden, encoder_outputs)
             topv, topi = decoder_output.topk(1)
-            decoder_input = topi.squeeze().detach()  # detach from history as input
-            decoder_outputs[di]=decoder_input[0]
+            decoder_input = topi.squeeze().detach(
+            )  # detach from history as input
+            decoder_outputs[di] = decoder_input[0]
             if decoder_input.item() == EOS_token:
                 break
-        
-        output_length=di+1
-        return decoder_outputs,output_length
 
-
+        output_length = di + 1
+        return decoder_outputs, output_length
