@@ -2,6 +2,7 @@ from config import *
 import random
 # import json
 import pickle
+R_PATH='.'
 
 class Lang:
     def __init__(self, name):
@@ -97,7 +98,7 @@ def main():
     print(random.choice(pairs))
     return input_lang, output_lang, pairs
 
-def load():
+def load_Langs():
     input_lang=Lang(LANG1)
     output_lang=Lang(LANG2)
     input_lang.load()

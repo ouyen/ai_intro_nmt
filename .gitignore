@@ -1,0 +1,5 @@
+__pycache__/
+/*.ipynb
+tmp/
+code.zip
+dataset/*.zip

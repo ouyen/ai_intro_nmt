@@ -1,16 +1,15 @@
 import torch
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+print(device)
 SOS_token = 0
 EOS_token = 1
 
 MAX_LENGTH = 10 #句子最大长度
 
-R_PATH='.' #相对路径
-# data_path='..' # 在训练平台时
+MODEL_PATH='./model/v1' # model解压位置
 
 LANG1='zh'
 LANG2='en'
 
-# TEACHER_FORCING_RATIO = 0.5
+TEACHER_FORCING_RATIO = 0.5
