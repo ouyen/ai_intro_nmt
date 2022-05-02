@@ -17,6 +17,9 @@ import math
 from model import *
 
 R_PATH='..'
+from data_processing import load_Langs,prepareData
+# input_lang, output_lang, pairs=load_Langs()
+input_lang, output_lang, pairs = prepareData(LANG1,LANG2)
 
 
 def asMinutes(s):
@@ -118,8 +121,6 @@ def tensorFromSentence(lang, sentence):
     indexes.append(EOS_token)
     return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
 
-from data_processing import load_Langs
-input_lang, output_lang, pairs=load_Langs()
 
 def tensorsFromPair(pair):
     input_tensor = tensorFromSentence(input_lang, pair[0])
