@@ -3,3 +3,4 @@ __pycache__/
 tmp/
 code.zip
 dataset/*.zip
+!test.ipynb
