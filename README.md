@@ -6,21 +6,21 @@
 
 https://github.com/pytorch/fairseq/blob/main/examples/translation/README.md
 
-## current->v1.0.x
+## v1.0.x
 
 基本完全参考[官方tutorial](https://pytorch.org/tutorials/intermediate/seq2seq_translation_tutorial.html)
 
 为example性质
 
-## v1.1.x
+## current->v1.1.x
 
-加入bleu评价指标
+使用torchtext重构dataloader
 
 划分数据集与测试集
 
 ## v1.2.x
 
-使用torchtext重构dataloader
+加入bleu评价指标
 
 ## v2.0.x
 

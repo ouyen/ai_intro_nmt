@@ -17,9 +17,10 @@ import math
 from model import *
 
 R_PATH = '..'
-from data_processing import prepareData
+from dataloader import Dataloader
+# from data_processing import prepareData
 # input_lang, output_lang, pairs=load_Langs()
-input_lang, output_lang, pairs, pairs_tensors = prepareData(LANG1, LANG2)
+# input_lang, output_lang, pairs, pairs_tensors = prepareData(LANG1, LANG2)
 
 
 def asMinutes(s):
@@ -111,7 +112,7 @@ def train(input_tensor,
             decoder_input = topi.squeeze().detach(
             )  # detach from history as input
 
-            loss += criterion(decoder_output, target_tensor[di])
+            loss += criterion(decoder_output, target_tensor[di].view(1))
             if decoder_input.item() == EOS_token:
                 break
 
@@ -123,63 +124,78 @@ def train(input_tensor,
     return loss.item() / target_length
 
 
-def trainIters(encoder,
-               decoder,
-               n_iters,
-               print_every=1000,
-               plot_every=100,
-               learning_rate=0.01):
+def trainIters(
+    dataloader: Dataloader,
+    encoder,
+    decoder,
+    #    n_iters,
+    #    print_every=1000,
+    #    plot_every=100,
+    learning_rate=0.01):
     start = time.time()
-    plot_losses = []
-    print_loss_total = 0  # Reset every print_every
-    plot_loss_total = 0  # Reset every plot_every
+    losses = []
+    loss_total = 0
 
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
     # training_pairs = [tensorsFromPair(random.choice(pairs))
     #                   for i in range(n_iters)]
-    training_pairs = [random.choice(pairs_tensors) for _ in range(n_iters)]
+    training_pairs = dataloader.pair_tensors
     criterion = nn.NLLLoss()
 
-    for iter in range(1, n_iters + 1):
-        training_pair = training_pairs[iter - 1]
-        input_tensor = training_pair[0]
-        target_tensor = training_pair[1]
+    # for iter in range(1, TRAIN_BATCH_SIZE + 1):
+    batch_count = 0
+    for batch in dataloader.pair_tensors:
+        batch_count += 1
+        # training_pair = training_pairs[iter - 1]
+        loss_total = 0
+        for iter in range(TRAIN_BATCH_SIZE):
+            input_tensor = batch.lang1[:, iter]
+            target_tensor = batch.lang2[:, iter]
 
-        loss = train(input_tensor, target_tensor, encoder, decoder,
-                     encoder_optimizer, decoder_optimizer, criterion)
-        print_loss_total += loss
-        plot_loss_total += loss
+            loss = train(input_tensor, target_tensor, encoder, decoder,
+                         encoder_optimizer, decoder_optimizer, criterion)
+            # print_loss_total += loss
+            # plot_loss_total += loss
+            loss_total += loss
 
-        if iter % print_every == 0:
-            print_loss_avg = print_loss_total / print_every
-            print_loss_total = 0
-            print('%s (%d %d%%) %.4f' %
-                  (timeSince(start, iter / n_iters), iter,
-                   iter / n_iters * 100, print_loss_avg))
+        # if iter % print_every == 0:
+        loss_avg = loss_total / TRAIN_BATCH_SIZE
+        losses.append(loss_avg)
 
-        if iter % plot_every == 0:
-            plot_loss_avg = plot_loss_total / plot_every
-            plot_losses.append(plot_loss_avg)
-            plot_loss_total = 0
+        print('%s (%d %d%%) %.4f' %
+              (timeSince(start, batch_count / TRAIN_BATCH_SIZE), batch_count,
+               batch_count / TRAIN_BATCH_SIZE * 100, loss_avg))
+
+        # if iter % plot_every == 0:
+        # plot_loss_avg = plot_loss_total / plot_every
+        # plot_losses.append(plot_loss_avg)
+        # plot_loss_total = 0
 
     # showPlot(plot_losses)
-    return plot_losses
+    return losses
 
 
 def train_and_save():
     hidden_size = 256
-    encoder1 = EncoderRNN(input_lang.n_words, hidden_size).to(device)
+    dataloader = Dataloader(dataset_path=R_PATH+'/dataset/')
+    encoder1 = EncoderRNN(len(dataloader.lang1.vocab.itos),
+                          hidden_size).to(device)
     attn_decoder1 = AttnDecoderRNN(hidden_size,
-                                   output_lang.n_words,
+                                   len(dataloader.lang2.vocab.itos),
                                    dropout_p=0.1).to(device)
 
-    plot_losses = trainIters(encoder1, attn_decoder1, 75000, print_every=500)
+    plot_losses = trainIters(dataloader, encoder1, attn_decoder1)
     torch.save(encoder1.state_dict(), R_PATH + "/model/encoder1.pt")
     torch.save(attn_decoder1.state_dict(), R_PATH + "/model/attn_decoder1.pt")
 
     t_plot_losses = torch.tensor(plot_losses)
     torch.save(t_plot_losses, R_PATH + "/model/plot_losses.pt")
+    try:
+        from message import message
+        message()
+    except:
+        pass
 
 
 if __name__ == '__main__':
