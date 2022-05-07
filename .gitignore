@@ -8,3 +8,4 @@ wmt_dataset
 message.py
 tmp.py
 dataset/*.pkl
+model/lang.pkl

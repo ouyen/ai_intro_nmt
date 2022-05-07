@@ -1,3 +1,4 @@
+from lib2to3.pgen2.token import RPAR
 from config import *
 
 # from __future__ import unicode_literals, print_function, division
@@ -16,7 +17,7 @@ import time
 import math
 from model import *
 
-R_PATH = '..'
+# R_PATH = '..'
 from dataloader import Dataloader
 # from data_processing import prepareData
 # input_lang, output_lang, pairs=load_Langs()
@@ -100,7 +101,7 @@ def train(input_tensor,
         for di in range(target_length):
             decoder_output, decoder_hidden, decoder_attention = decoder(
                 decoder_input, decoder_hidden, encoder_outputs)
-            loss += criterion(decoder_output, target_tensor[di])
+            loss += criterion(decoder_output, target_tensor[di].view(1))
             decoder_input = target_tensor[di]  # Teacher forcing
 
     else:
@@ -134,6 +135,7 @@ def trainIters(
     learning_rate=0.01):
     start = time.time()
     losses = []
+    bleu_scores = []
     loss_total = 0
 
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
@@ -152,6 +154,8 @@ def trainIters(
         for iter in range(TRAIN_BATCH_SIZE):
             input_tensor = batch.lang1[:, iter]
             target_tensor = batch.lang2[:, iter]
+            # input_tensor = batch.lang1.T
+            # target_tensor = batch.lang2.T
 
             loss = train(input_tensor, target_tensor, encoder, decoder,
                          encoder_optimizer, decoder_optimizer, criterion)
@@ -164,8 +168,9 @@ def trainIters(
         losses.append(loss_avg)
 
         print('%s (%d %d%%) %.4f' %
-              (timeSince(start, batch_count / TRAIN_BATCH_SIZE), batch_count,
-               batch_count / TRAIN_BATCH_SIZE * 100, loss_avg))
+              (timeSince(start, batch_count * TRAIN_BATCH_SIZE /
+                         TOTAL_TRAIN_SIZE), batch_count, batch_count *
+               TRAIN_BATCH_SIZE / TOTAL_TRAIN_SIZE * 100, loss_avg))
 
         # if iter % plot_every == 0:
         # plot_loss_avg = plot_loss_total / plot_every
@@ -173,24 +178,27 @@ def trainIters(
         # plot_loss_total = 0
 
     # showPlot(plot_losses)
-    return losses
+    return losses, bleu_scores
 
 
 def train_and_save():
     hidden_size = 256
-    dataloader = Dataloader(dataset_path=R_PATH+'/dataset/')
+    dataloader = Dataloader(type='train')
+    dataloader_validation = Dataloader(type='validation')
     encoder1 = EncoderRNN(len(dataloader.lang1.vocab.itos),
                           hidden_size).to(device)
     attn_decoder1 = AttnDecoderRNN(hidden_size,
                                    len(dataloader.lang2.vocab.itos),
                                    dropout_p=0.1).to(device)
 
-    plot_losses = trainIters(dataloader, encoder1, attn_decoder1)
+    losses, bleu_scores = trainIters(dataloader, encoder1, attn_decoder1)
     torch.save(encoder1.state_dict(), R_PATH + "/model/encoder1.pt")
     torch.save(attn_decoder1.state_dict(), R_PATH + "/model/attn_decoder1.pt")
 
-    t_plot_losses = torch.tensor(plot_losses)
+    t_plot_losses = torch.tensor(losses)
+    t_bleu_scores = torch.tensor(bleu_scores)
     torch.save(t_plot_losses, R_PATH + "/model/plot_losses.pt")
+    torch.save(t_bleu_scores, R_PATH + "/model/bleu_scores.pt")
     try:
         from message import message
         message()
