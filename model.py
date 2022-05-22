@@ -102,7 +102,8 @@ class Seq2seq(nn.Module):
 
         decoder_hidden = encoder_hidden
 
-        decoder_outputs = torch.zeros(MAX_LENGTH, device=device)
+        # decoder_outputs = torch.zeros(MAX_LENGTH, device=device)
+        decoder_outputs =  torch.zeros((MAX_LENGTH,self.decoder.output_size),device=device)
 
         for di in range(MAX_LENGTH):
             decoder_output, decoder_hidden, decoder_attention = decoder(
@@ -110,7 +111,9 @@ class Seq2seq(nn.Module):
             topv, topi = decoder_output.topk(1)
             decoder_input = topi.squeeze().detach(
             )  # detach from history as input
-            decoder_outputs[di] = decoder_input[0]
+
+            decoder_outputs[di] = decoder_output
+            # decoder_outputs.append(decoder_output)
             if decoder_input.item() == EOS_token:
                 break
 

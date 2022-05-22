@@ -6,19 +6,36 @@ from config import *
 
 from model import *
 # from train import tensorFromSentence
-from data_processing import tensorFromSentence
+# from data_processing import tensorFromSentence
+from dataloader import Dataloader
 import matplotlib.pyplot as plt
+from torchtext.data.metrics import bleu_score
 
 
-def evaluate(input_lang,
-             output_lang,
+def cal_bleu(
+    dataloader: Dataloader,
+    input_sentences,
+    target_sentences,
+    input_tensors,
+    encoder,
+    decoder,
+):
+    # list(a.train_ds.lang1)
+    output_sentences=[[]]
+    b=bleu_score(input_sentences,output_sentences,)
+
+
+def evaluate(dataloader: Dataloader,
              pairs,
              encoder,
              decoder,
              sentence,
+             input_tensor='',
              max_length=MAX_LENGTH):
     with torch.no_grad():
-        input_tensor = tensorFromSentence(input_lang, sentence)
+        # input_tensor = tensorFromSentence(input_lang, sentence)
+        if input_tensor=='':
+            input_tensor = dataloader.index_sentences(LANG1, [sentence]).T[0]
         input_length = input_tensor.size()[0]
         encoder_hidden = encoder.initHidden()
 
@@ -47,7 +64,7 @@ def evaluate(input_lang,
                 decoded_words.append('<EOS>')
                 break
             else:
-                decoded_words.append(output_lang.index2word[topi.item()])
+                decoded_words.append(dataloader.lang2.vocab.itos[topi.item()])
 
             decoder_input = topi.squeeze().detach()
 

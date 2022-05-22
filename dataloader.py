@@ -1,6 +1,9 @@
+from operator import index
+from re import S
 from torchtext.legacy import data
 from config import *
 import pickle
+from torchtext.data.metrics import bleu_score
 
 
 def tokenize(sentence):
@@ -25,8 +28,8 @@ class Dataloader:
                  batch_size=TRAIN_BATCH_SIZE,
                  save=False,
                  load=False,
-                 load_path=R_PATH+'/model/lang.pkl',
-                 save_path=R_PATH+'/model/lang.pkl'):
+                 load_path=R_PATH + '/model/lang.pkl',
+                 save_path=R_PATH + '/model/lang.pkl'):
         if type not in {'train', 'validation', 'test'}:
             raise 'type error'
         save = bool(type == 'train')
@@ -70,9 +73,9 @@ class Dataloader:
             self.lang1.build_vocab(self.train_ds)
             self.lang2.build_vocab(self.train_ds)
         self.pair_tensors = data.Iterator(dataset=self.train_ds,
-                                          batch_size=batch_size,
-                                          device=device,
-                                          train=True)
+                                        batch_size=batch_size,
+                                        device=device,
+                                        train=True)
         if (save):
             self.save(save_path)
         # print(len(self.pair_tensors))
@@ -115,26 +118,66 @@ class Dataloader:
 
     def get_sentence_lang(self, lang, num_tensors):
         # num_lists = num_tensors.tolist()
-        length = min(self.batch_size, num_tensors.size(1))
-        res = ["" for _ in range(length)]
+        # length = min(MAX_LENGTH, num_tensors.size(1))
+        res = [[_x for _x in range(num_tensors.size(1))] for _ in range(num_tensors.size(0))]
         langx = self.lang1 if (lang == LANG1) else self.lang2
         # for i in range(length):
         #     res.append("")
-        for i in range(length):
-            for j in range(num_tensors.size(0)):
-                if langx.vocab.itos[num_tensors[j][i]] == '<pad>':
+        for i in range(num_tensors.size(0)):
+            for j in range(num_tensors.size(1)):
+                if langx.vocab.itos[num_tensors[i][j]] == '<pad>':
                     break
-                res[i] += langx.vocab.itos[num_tensors[j][i]] + " "
+                res[i][j] = langx.vocab.itos[num_tensors[i][j]] 
         return res
+
+    def index_sentences(self, lang, sentences):
+        n_sentences = len(sentences)
+        index_tensors = torch.ones(n_sentences,
+                                   MAX_LENGTH,
+                                   dtype=torch.int,
+                                   device=device)
+        langx = self.lang1 if (lang == LANG1) else self.lang2
+        for i in range(n_sentences):
+            for j in range(min(MAX_LENGTH, len(sentences[i]))):
+                if sentences[i][j] in langx.vocab.stoi:
+                    index_tensors[i][j] = langx.vocab.stoi[sentences[i][j]]
+                else:
+                    index_tensors[i][j] = langx.vocab.stoi['<unk>']
+        return index_tensors.T
+
+    def bleu_sentence(self,input_sentence,target_sentence):
+        return bleu_score([input_sentence],[[target_sentence]])
+
+
+    def bleu(self,seq2seq):
+        bleu_list=[]
+        for i in self.train_ds:
+            input=i.lang1
+            target=i.lang2
+            input_tensor=self.index_sentences(LANG1,[input])
+            output_tensor,output_size=seq2seq(input_tensor[:,0])
+            _,topi=output_tensor.topk(1,dim=1)
+            output_sentence=self.get_sentence_lang(LANG2,topi.T[0][:output_size].view(1,-1))
+            bleu_list.append(bleu_score(output_sentence,[[target]]))
+        return bleu_list
+
+
 
 
 if __name__ == '__main__':
-    a = Dataloader(batch_size=5)
+    a = Dataloader(batch_size=5,type='validation')
     # print(len(a.pair_tensors))
-    for batch in a.pair_tensors:
-        # print(batch.lang1.t())
-        print(a.train_ds[0])
-        # print(a.get_sentence_lang(LANG1,batch.lang1))
-        # print(a.get_sentence_lang(LANG2,batch.lang2))
+    # for batch in a.pair_tensors:
+    #     # print(batch.lang1.t())
+    #     print(list(a.train_ds.lang1))
+    #     print(a.train_ds[0].lang1)
+    #     i=a.index_sentences(LANG1,[a.train_ds[0].lang1])
+    #     print(i)
+    #     print(a.get_sentence_lang(LANG1,i))
+    #     # print(a.get_sentence_lang(LANG1,batch.lang1))
+    #     # print(a.get_sentence_lang(LANG2,batch.lang2))
 
+    #     break
+    for i in a.train_ds:
+        print(i.lang1)
         break

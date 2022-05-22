@@ -127,6 +127,7 @@ def train(input_tensor,
 
 def trainIters(
     dataloader: Dataloader,
+    dataloader_validation:Dataloader,
     encoder,
     decoder,
     #    n_iters,
@@ -136,8 +137,9 @@ def trainIters(
     start = time.time()
     losses = []
     bleu_scores = []
+    max_bleu=0
     loss_total = 0
-
+    s2s=Seq2seq(encoder,decoder)
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
     # training_pairs = [tensorsFromPair(random.choice(pairs))
@@ -147,31 +149,59 @@ def trainIters(
 
     # for iter in range(1, TRAIN_BATCH_SIZE + 1):
     batch_count = 0
+
     for batch in dataloader.pair_tensors:
+        if batch.lang1.size()[-1]!=TRAIN_BATCH_SIZE:
+            break
         batch_count += 1
         # training_pair = training_pairs[iter - 1]
         loss_total = 0
+        encoder_optimizer.zero_grad()
+        decoder_optimizer.zero_grad()
+        loss = 0
+        length_total = 0
+
         for iter in range(TRAIN_BATCH_SIZE):
             input_tensor = batch.lang1[:, iter]
             target_tensor = batch.lang2[:, iter]
-            # input_tensor = batch.lang1.T
-            # target_tensor = batch.lang2.T
 
-            loss = train(input_tensor, target_tensor, encoder, decoder,
-                         encoder_optimizer, decoder_optimizer, criterion)
+
+            decoder_outputs, output_length = s2s(input_tensor)
+            # loss=0
+            length_total+=output_length
+            # for i in range(output_length):
+            #     loss+=criterion(decoder_outputs[i],target_tensor[i].view(1))
+            loss+=criterion(decoder_outputs,target_tensor)
+
+
+            # loss = train(input_tensor, target_tensor, encoder, decoder,
+            #              encoder_optimizer, decoder_optimizer, criterion)
             # print_loss_total += loss
             # plot_loss_total += loss
-            loss_total += loss
 
+        loss.backward()
+
+
+        encoder_optimizer.step()
+        decoder_optimizer.step()
         # if iter % print_every == 0:
-        loss_avg = loss_total / TRAIN_BATCH_SIZE
+        # loss_avg = loss.item() / (TRAIN_BATCH_SIZE*length_total)
+        loss_avg = loss.item() /TRAIN_BATCH_SIZE
         losses.append(loss_avg)
 
         print('%s (%d %d%%) %.4f' %
               (timeSince(start, batch_count * TRAIN_BATCH_SIZE /
                          TOTAL_TRAIN_SIZE), batch_count, batch_count *
                TRAIN_BATCH_SIZE / TOTAL_TRAIN_SIZE * 100, loss_avg))
-
+        if batch_count%BLEU_BATCH_COUNT==0:
+            b=dataloader_validation.bleu(s2s)
+            b_score=sum(b)/len(b)
+            bleu_scores.append(b_score)
+            if b_score>max_bleu:
+                torch.save(encoder.state_dict(), R_PATH + "/model/encoder1.pt")
+                torch.save(decoder.state_dict(), R_PATH + "/model/attn_decoder1.pt")
+                torch.save(s2s.state_dict(), R_PATH+'/model/s2s.pt')
+                max_bleu=b_score
         # if iter % plot_every == 0:
         # plot_loss_avg = plot_loss_total / plot_every
         # plot_losses.append(plot_loss_avg)
@@ -191,9 +221,7 @@ def train_and_save():
                                    len(dataloader.lang2.vocab.itos),
                                    dropout_p=0.1).to(device)
 
-    losses, bleu_scores = trainIters(dataloader, encoder1, attn_decoder1)
-    torch.save(encoder1.state_dict(), R_PATH + "/model/encoder1.pt")
-    torch.save(attn_decoder1.state_dict(), R_PATH + "/model/attn_decoder1.pt")
+    losses, bleu_scores = trainIters(dataloader,dataloader_validation, encoder1, attn_decoder1)
 
     t_plot_losses = torch.tensor(losses)
     t_bleu_scores = torch.tensor(bleu_scores)
