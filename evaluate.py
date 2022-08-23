@@ -6,36 +6,22 @@ from config import *
 
 from model import *
 # from train import tensorFromSentence
-# from data_processing import tensorFromSentence
-from dataloader import Dataloader
+from data_processing import tensorFromSentence
 import matplotlib.pyplot as plt
 from torchtext.data.metrics import bleu_score
+from nltk.translate.bleu_score import sentence_bleu
+from nltk.translate.bleu_score import SmoothingFunction
 
 
-def cal_bleu(
-    dataloader: Dataloader,
-    input_sentences,
-    target_sentences,
-    input_tensors,
-    encoder,
-    decoder,
-):
-    # list(a.train_ds.lang1)
-    output_sentences=[[]]
-    b=bleu_score(input_sentences,output_sentences,)
-
-
-def evaluate(dataloader: Dataloader,
+def evaluate(input_lang,
+             output_lang,
              pairs,
              encoder,
              decoder,
              sentence,
-             input_tensor='',
              max_length=MAX_LENGTH):
     with torch.no_grad():
-        # input_tensor = tensorFromSentence(input_lang, sentence)
-        if input_tensor=='':
-            input_tensor = dataloader.index_sentences(LANG1, [sentence]).T[0]
+        input_tensor = tensorFromSentence(input_lang, sentence)
         input_length = input_tensor.size()[0]
         encoder_hidden = encoder.initHidden()
 
@@ -61,26 +47,42 @@ def evaluate(dataloader: Dataloader,
             decoder_attentions[di] = decoder_attention.data
             topv, topi = decoder_output.data.topk(1)
             if topi.item() == EOS_token:
-                decoded_words.append('<EOS>')
+                # decoded_words.append('<EOS>')
                 break
             else:
-                decoded_words.append(dataloader.lang2.vocab.itos[topi.item()])
+                decoded_words.append(output_lang.index2word[topi.item()])
 
             decoder_input = topi.squeeze().detach()
 
         return decoded_words, decoder_attentions[:di + 1]
 
 
-def evaluateRandomly(input_lang, output_lang, pairs, encoder, decoder, n=10):
+def evaluate_bleu(input_lang, output_lang, pairs, encoder, decoder, type='',n=1024,show=False):
+    p_list = []
+    b_list = []
+    if type=='val':
+        p=pairs[-2048:-1024]
+    elif type=='test':
+        p=pairs[-1024:]
     for i in range(n):
-        pair = random.choice(pairs)
-        print('>', pair[0])
-        print('=', pair[1])
+        # pair = random.choice(pairs)
+        pair = p[i]
         output_words, attentions = evaluate(input_lang, output_lang, pairs,
                                             encoder, decoder, pair[0])
+        target_words = pair[1].split(' ')
         output_sentence = ' '.join(output_words)
-        print('<', output_sentence)
-        print('')
+        b = sentence_bleu([target_words], output_words, weights=(0.5, 0.5, 0., 0.),smoothing_function = SmoothingFunction().method1)
+        # b = bleu_score([output_words],[[target_words]],max_n=2)
+        if show:
+            print('>', pair[0])
+            print('=', pair[1])
+            print('<', output_sentence)
+            print('bleu: ',b)
+            print('')
+        b_list.append(b)
+        p_list.append((pair[0],pair[1],output_sentence))
+    return p_list,b_list
+        
 
 
 if __name__ == '__main__':
